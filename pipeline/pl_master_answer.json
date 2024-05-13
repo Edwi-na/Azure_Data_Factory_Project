@@ -77,10 +77,12 @@
 		],
 		"parameters": {
 			"mplp_sql_schema": {
-				"type": "string"
+				"type": "string",
+				"defaultValue": "sto"
 			},
 			"mplp_sql_answers_table": {
-				"type": "string"
+				"type": "string",
+				"defaultValue": "answers"
 			}
 		},
 		"annotations": [],

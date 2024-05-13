@@ -5,7 +5,14 @@
 			{
 				"name": "ingest",
 				"type": "ExecutePipeline",
-				"dependsOn": [],
+				"dependsOn": [
+					{
+						"activity": "loggingpiplinestart",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
 				"policy": {
 					"secureInput": false
 				},
@@ -25,7 +32,7 @@
 				}
 			},
 			{
-				"name": "Execute Pipeline2",
+				"name": "Transformation",
 				"type": "ExecutePipeline",
 				"dependsOn": [
 					{
@@ -66,11 +73,11 @@
 				}
 			},
 			{
-				"name": "Execute Pipeline3",
+				"name": "load",
 				"type": "ExecutePipeline",
 				"dependsOn": [
 					{
-						"activity": "Execute Pipeline2",
+						"activity": "Transformation",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -112,6 +119,65 @@
 							"type": "Expression"
 						}
 					}
+				}
+			},
+			{
+				"name": "loggingpiplinestart",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "AzureSqlDatabase1",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "Insert into logging.Piplinerun (Piplinerun, PiplineName, PiplineStartTime, PiplineEndTime, PiplineStatus)\r\nValues(\r\n    '(@pipeline().RunId)'\r\n    '(@pipeline().Pipeline)'\r\n    GetUTCDATE(),\r\n    Null,\r\n    'Starting'\r\n\r\n)"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "loggingpiplineend",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "load",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "AzureSqlDatabase1",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "Update logging.piplinerun\r\nset\r\n    PiplineEndTime = GETUTCDATE(),\r\n    PiplineStatus = '@{activity('load').status}'\r\nwhere\r\n    PiplineID = '@{pipline().RunID}'\r\n    and PiplineStauts = 'Starting'"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
 				}
 			}
 		],
