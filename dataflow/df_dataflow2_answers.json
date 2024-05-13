@@ -1,0 +1,63 @@
+{
+	"name": "df_dataflow2_answers",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_Parquet1_answers",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_Parquet1_silver_answers",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "window1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          answer_id as integer,",
+				"          content_license as string,",
+				"          creation_date as integer,",
+				"          is_accepted as boolean,",
+				"          last_activity_date as integer,",
+				"          last_edit_date as integer,",
+				"          {owner.account_id} as integer,",
+				"          question_id as integer,",
+				"          score as short",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     inferDriftedColumnTypes: true,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> source1",
+				"source1 derive(last_activity_date = toTimestamp(last_activity_date),",
+				"          last_edit_date = toTimestamp(last_edit_date),",
+				"          creation_date = toTimestamp(creation_date)) ~> derivedColumn1",
+				"derivedColumn1 window(over(question_id),",
+				"     asc(score, true),",
+				"     score_rank = rowNumber()) ~> window1",
+				"window1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink1"
+			]
+		}
+	}
+}

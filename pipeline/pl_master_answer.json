@@ -1,0 +1,90 @@
+{
+	"name": "pl_master_answer",
+	"properties": {
+		"activities": [
+			{
+				"name": "answers ingest",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_ingest_answers",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "answers transformation",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "answers ingest",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_transformation_answers",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "answers loading",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "answers transformation",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_load_answers",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"sql_schema": {
+							"value": "@pipeline().parameters.mplp_sql_schema",
+							"type": "Expression"
+						},
+						"sql_table": {
+							"value": "@pipeline().parameters.mplp_sql_answers_table",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"mplp_sql_schema": {
+				"type": "string"
+			},
+			"mplp_sql_answers_table": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-05-11T18:11:21Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,13 @@
+{
+	"name": "RestService2_answers",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "RestService",
+		"typeProperties": {
+			"url": "https://api.stackexchange.com/2.3/answers?order=desc&sort=activity&site=stackoverflow",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "Anonymous"
+		}
+	}
+}

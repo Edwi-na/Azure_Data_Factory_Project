@@ -1,0 +1,13 @@
+{
+	"name": "ds_RestResource1_answers",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "RestService2_answers",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "RestResource",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

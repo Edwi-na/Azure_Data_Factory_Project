@@ -1,0 +1,86 @@
+{
+	"name": "df_dataflow1_answers",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_Json1_answers",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_Parquet1_answers",
+						"type": "DatasetReference"
+					},
+					"name": "sink1",
+					"rejectedDataLinkedService": {
+						"referenceName": "ls_AzureBlobStorage1",
+						"type": "LinkedServiceReference"
+					}
+				}
+			],
+			"transformations": [
+				{
+					"name": "flatten1"
+				},
+				{
+					"name": "select1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          has_more as boolean,",
+				"          items as (answer_id as integer, content_license as string, creation_date as integer, is_accepted as boolean, last_activity_date as integer, last_edit_date as integer, owner as (accept_rate as short, account_id as integer, display_name as string, link as string, profile_image as string, reputation as integer, user_id as integer, user_type as string), posted_by_collectives as (description as string, external_links as (link as string, type as string)[], link as string, name as string, slug as string, tags as string[])[], question_id as integer, score as short)[],",
+				"          quota_max as short,",
+				"          quota_remaining as short",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     inferDriftedColumnTypes: true,",
+				"     ignoreNoFilesFound: false,",
+				"     documentForm: 'documentPerLine') ~> source1",
+				"source1 foldDown(unroll(items),",
+				"     mapColumn(",
+				"          answer_id = items.answer_id,",
+				"          content_license = items.content_license,",
+				"          creation_date = items.creation_date,",
+				"          is_accepted = items.is_accepted,",
+				"          last_activity_date = items.last_activity_date,",
+				"          last_edit_date = items.last_edit_date,",
+				"          {owner.account_id} = items.owner.account_id,",
+				"          posted_by_collectives = items.posted_by_collectives,",
+				"          question_id = items.question_id,",
+				"          score = items.score",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> flatten1",
+				"flatten1 select(mapColumn(",
+				"          answer_id,",
+				"          content_license,",
+				"          creation_date,",
+				"          is_accepted,",
+				"          last_activity_date,",
+				"          last_edit_date,",
+				"          {owner.account_id},",
+				"          question_id,",
+				"          score",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     outputAssertFailedRows: true,",
+				"     assertFailure_container: 'quarantineanswers') ~> sink1"
+			]
+		}
+	}
+}
