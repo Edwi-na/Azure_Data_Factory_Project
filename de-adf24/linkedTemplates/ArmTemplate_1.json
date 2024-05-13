@@ -1,0 +1,1065 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "de-adf24"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/df_dataflow2_answers')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "ds_Parquet1_answers",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "ds_Parquet1_silver_answers",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "window1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          answer_id as integer,",
+						"          content_license as string,",
+						"          creation_date as integer,",
+						"          is_accepted as boolean,",
+						"          last_activity_date as integer,",
+						"          last_edit_date as integer,",
+						"          {owner.account_id} as integer,",
+						"          question_id as integer,",
+						"          score as short",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     inferDriftedColumnTypes: true,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'parquet') ~> source1",
+						"source1 derive(last_activity_date = toTimestamp(last_activity_date),",
+						"          last_edit_date = toTimestamp(last_edit_date),",
+						"          creation_date = toTimestamp(creation_date)) ~> derivedColumn1",
+						"derivedColumn1 window(over(question_id),",
+						"     asc(score, true),",
+						"     score_rank = rowNumber()) ~> window1",
+						"window1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/df_integration')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "ds_Parquet1",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "ds_Parquet1_silver",
+								"type": "DatasetReference"
+							},
+							"name": "sinkfactdata"
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_Parquet1_silver",
+								"type": "DatasetReference"
+							},
+							"name": "sink1dimdatat"
+						}
+					],
+					"transformations": [
+						{
+							"name": "selectfactdata"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "window1"
+						},
+						{
+							"name": "filter1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          question_id as integer,",
+						"          title as string,",
+						"          accepted_answer_id as integer,",
+						"          answer_count as integer,",
+						"          closed_date as integer,",
+						"          closed_reason as string,",
+						"          content_license as string,",
+						"          creation_date as integer,",
+						"          is_answered as boolean,",
+						"          last_activity_date as integer,",
+						"          last_edit_date as integer,",
+						"          link as string,",
+						"          score as integer,",
+						"          tags as string,",
+						"          view_count as integer,",
+						"          {owner.account_id} as integer,",
+						"          {owner.display_name} as string,",
+						"          {owner.accept_rate} as integer,",
+						"          {owner.reputation} as integer,",
+						"          {owner.user_id} as integer",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     inferDriftedColumnTypes: true,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'parquet') ~> source1",
+						"source1 select(mapColumn(",
+						"          question_id,",
+						"          title,",
+						"          accepted_answer_id,",
+						"          answer_count,",
+						"          closed_date,",
+						"          closed_reason,",
+						"          content_license,",
+						"          creation_date,",
+						"          is_answered,",
+						"          last_activity_date,",
+						"          last_edit_date,",
+						"          link,",
+						"          score,",
+						"          tags,",
+						"          view_count,",
+						"          account_id = {owner.account_id}",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectfactdata",
+						"source1 select(mapColumn(",
+						"          {owner.account_id},",
+						"          {owner.display_name},",
+						"          {owner.accept_rate},",
+						"          {owner.reputation},",
+						"          {owner.user_id}",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"select1 window(over({owner.account_id}),",
+						"     asc({owner.account_id}, true),",
+						"     row_number = rowNumber()) ~> window1",
+						"window1 filter(row_number ==1) ~> filter1",
+						"selectfactdata sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('roundRobin', 2)) ~> sinkfactdata",
+						"filter1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('roundRobin', 2)) ~> sink1dimdatat"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_first_transaformation')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "purgeBronze",
+						"type": "Delete",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "ds_Parquet1",
+								"type": "DatasetReference",
+								"parameters": {
+									"dsp_folder": {
+										"value": "@pipeline().parameters.plp_tag",
+										"type": "Expression"
+									}
+								}
+							},
+							"logStorageSettings": {
+								"linkedServiceName": {
+									"referenceName": "ls_AzureBlobStorage1",
+									"type": "LinkedServiceReference"
+								},
+								"path": "logs"
+							},
+							"enableLogging": true,
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "purgeBronze",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@pipeline().parameters.plp_tag",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "flowfromlandingtobronze_copy1",
+									"type": "ExecuteDataFlow",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataflow": {
+											"referenceName": "df_dataflow1",
+											"type": "DataFlowReference",
+											"parameters": {},
+											"datasetParameters": {
+												"source1": {
+													"dsp_folder": {
+														"value": "@item()",
+														"type": "Expression"
+													}
+												},
+												"sink1": {
+													"dsp_folder": {
+														"value": "@item()",
+														"type": "Expression"
+													}
+												}
+											}
+										},
+										"staging": {},
+										"compute": {
+											"coreCount": 8,
+											"computeType": "General"
+										},
+										"traceLevel": "Fine"
+									}
+								},
+								{
+									"name": "Copy data1",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "flowfromlandingtobronze_copy1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"wildcardFolderPath": {
+													"value": "@item()",
+													"type": "Expression"
+												},
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "ParquetReadSettings"
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobStorageWriteSettings",
+												"copyBehavior": "MergeFiles"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "ds_Parquet1",
+											"type": "DatasetReference",
+											"parameters": {
+												"dsp_folder": {
+													"value": "@item()",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "ds_Parquet1",
+											"type": "DatasetReference",
+											"parameters": {
+												"dsp_folder": {
+													"value": "@pipeline().parameters.plp_union_folder",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					},
+					{
+						"name": "flowBronzetoSilver",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "purgeSilver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_integration",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {
+										"dsp_folder": {
+											"value": "@pipeline().parameters.plp_union_folder",
+											"type": "Expression"
+										}
+									},
+									"sinkfactdata": {
+										"dsp_folder": {
+											"value": "@pipeline().parameters.plp_fact_folder",
+											"type": "Expression"
+										}
+									},
+									"sink1dimdatat": {
+										"dsp_folder": {
+											"value": "@pipeline().parameters.plp_dim_folder",
+											"type": "Expression"
+										}
+									}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "purgeSilver",
+						"type": "Delete",
+						"dependsOn": [
+							{
+								"activity": "ForEach1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "ds_Parquet1_silver",
+								"type": "DatasetReference",
+								"parameters": {
+									"dsp_folder": " "
+								}
+							},
+							"logStorageSettings": {
+								"linkedServiceName": {
+									"referenceName": "ls_AzureBlobStorage1",
+									"type": "LinkedServiceReference"
+								},
+								"path": "logs"
+							},
+							"enableLogging": true,
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"plp_tag": {
+						"type": "array"
+					},
+					"plp_union_folder": {
+						"type": "string"
+					},
+					"plp_fact_folder": {
+						"type": "string"
+					},
+					"plp_dim_folder": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-05-11T07:46:28Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/df_integration')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_transformation_answers')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "bronze processing",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "purgeBronze",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_dataflow1_answers",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"sink1": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "silver processing",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "purgeSilver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_dataflow2_answers",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"sink1": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "copy to parquet file",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "bronze processing",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "JsonSource",
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*.json",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "JsonReadSettings"
+								}
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobStorageWriteSettings",
+									"copyBehavior": "MergeFiles"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_Json1_answers",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_Parquet1_answers",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "purgeSilver",
+						"type": "Delete",
+						"dependsOn": [
+							{
+								"activity": "copy to parquet file",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "ds_Parquet1_silver_answers",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"logStorageSettings": {
+								"linkedServiceName": {
+									"referenceName": "ls_AzureBlobStorage1",
+									"type": "LinkedServiceReference"
+								},
+								"path": "logsanswers"
+							},
+							"enableLogging": true,
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "purgeBronze",
+						"type": "Delete",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "ds_Parquet1_answers",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"logStorageSettings": {
+								"linkedServiceName": {
+									"referenceName": "ls_AzureBlobStorage1",
+									"type": "LinkedServiceReference"
+								},
+								"path": "logsanswers"
+							},
+							"enableLogging": true,
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-05-11T18:09:13Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/df_dataflow2_answers')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_first_master')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ingest",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "loggingpiplinestart",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_first_ingest",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"plp_tag": {
+									"value": "@pipeline().parameters.mplp_tag",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Transformation",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "ingest",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_first_transaformation",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"plp_tag": {
+									"value": "@pipeline().parameters.mplp_tag",
+									"type": "Expression"
+								},
+								"plp_union_folder": {
+									"value": "@pipeline().parameters.mplp_union_folder",
+									"type": "Expression"
+								},
+								"plp_fact_folder": {
+									"value": "@pipeline().parameters.mplp_fact_folder",
+									"type": "Expression"
+								},
+								"plp_dim_folder": {
+									"value": "@pipeline().parameters.mplp_dim_folder",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "load",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Transformation",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_first_load",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"plp_tags": {
+									"value": "@pipeline().parameters.mplp_tag",
+									"type": "Expression"
+								},
+								"sql_schema": {
+									"value": "@pipeline().parameters.mplp_sql_schema",
+									"type": "Expression"
+								},
+								"sql_table_fact": {
+									"value": "@pipeline().parameters.mplp_sql_fact_table",
+									"type": "Expression"
+								},
+								"sql_table_dim": {
+									"value": "@pipeline().parameters.mplp_sql_dim_table",
+									"type": "Expression"
+								},
+								"plp_fact_folder": {
+									"value": "@pipeline().parameters.mplp_fact_folder",
+									"type": "Expression"
+								},
+								"plp_dim_folder": {
+									"value": "@pipeline().parameters.mplp_dim_folder",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "loggingpiplinestart",
+						"type": "Script",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase1",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": "Insert into logging.Piplinerun (Piplinerun, PiplineName, PiplineStartTime, PiplineEndTime, PiplineStatus)\r\nValues(\r\n    '(@pipeline().RunId)'\r\n    '(@pipeline().Pipeline)'\r\n    GetUTCDATE(),\r\n    Null,\r\n    'Starting'\r\n\r\n)"
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					},
+					{
+						"name": "loggingpiplineend",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "load",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase1",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": "Update logging.piplinerun\r\nset\r\n    PiplineEndTime = GETUTCDATE(),\r\n    PiplineStatus = '@{activity('load').status}'\r\nwhere\r\n    PiplineID = '@{pipline().RunID}'\r\n    and PiplineStauts = 'Starting'"
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"mplp_tag": {
+						"type": "array",
+						"defaultValue": [
+							"Python",
+							"databricks",
+							"azure-data-factory"
+						]
+					},
+					"mplp_union_folder": {
+						"type": "string",
+						"defaultValue": "union"
+					},
+					"mplp_fact_folder": {
+						"type": "string",
+						"defaultValue": "fact"
+					},
+					"mplp_dim_folder": {
+						"type": "string",
+						"defaultValue": "dim"
+					},
+					"mplp_sql_schema": {
+						"type": "string",
+						"defaultValue": "sto"
+					},
+					"mplp_sql_fact_table": {
+						"type": "string",
+						"defaultValue": "factQuestions"
+					},
+					"mplp_sql_dim_table": {
+						"type": "string",
+						"defaultValue": "dimOwners"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-05-10T06:34:35Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/pl_first_transaformation')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_master_answer')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "answers ingest",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_ingest_answers",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "answers transformation",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "answers ingest",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_transformation_answers",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "answers loading",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "answers transformation",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_load_answers",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"sql_schema": {
+									"value": "@pipeline().parameters.mplp_sql_schema",
+									"type": "Expression"
+								},
+								"sql_table": {
+									"value": "@pipeline().parameters.mplp_sql_answers_table",
+									"type": "Expression"
+								}
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"mplp_sql_schema": {
+						"type": "string",
+						"defaultValue": "sto"
+					},
+					"mplp_sql_answers_table": {
+						"type": "string",
+						"defaultValue": "answers"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-05-11T18:11:21Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/pl_transformation_answers')]"
+			]
+		}
+	]
+}
