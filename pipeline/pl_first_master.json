@@ -5,6 +5,8 @@
 			{
 				"name": "ingest",
 				"type": "ExecutePipeline",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "loggingpiplinestart",
@@ -34,6 +36,8 @@
 			{
 				"name": "Transformation",
 				"type": "ExecutePipeline",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "ingest",
@@ -75,6 +79,8 @@
 			{
 				"name": "load",
 				"type": "ExecutePipeline",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Transformation",
@@ -141,7 +147,7 @@
 					"scripts": [
 						{
 							"type": "Query",
-							"text": "Insert into logging.Piplinerun (Piplinerun, PiplineName, PiplineStartTime, PiplineEndTime, PiplineStatus)\r\nValues(\r\n    '(@pipeline().RunId)'\r\n    '(@pipeline().Pipeline)'\r\n    GetUTCDATE(),\r\n    Null,\r\n    'Starting'\r\n\r\n)"
+							"text": "Insert into logging.pipelinerun (PipelineRunID, PipelineName, PipelineStartTime, PipelineEndTime, PipelineStatus)\r\nValues(\r\n    '@{pipeline().RunId}',\r\n    '@{pipeline().Pipeline}',\r\n    GetUTCDATE(),\r\n    Null,\r\n    'Starting'\r\n\r\n)"
 						}
 					],
 					"scriptBlockExecutionTimeout": "02:00:00"
@@ -174,7 +180,7 @@
 					"scripts": [
 						{
 							"type": "Query",
-							"text": "Update logging.piplinerun\r\nset\r\n    PiplineEndTime = GETUTCDATE(),\r\n    PiplineStatus = '@{activity('load').status}'\r\nwhere\r\n    PiplineID = '@{pipline().RunID}'\r\n    and PiplineStauts = 'Starting'"
+							"text": "Update logging.pipelinerun\r\nset\r\n    PipelineEndTime = GETUTCDATE(),\r\n    PipelineStatus = '@{activity('load').status}'\r\nwhere\r\n    PipelineRunID = '@{pipeline().RunID}'\r\n    and PipelineStatus = 'Starting'"
 						}
 					],
 					"scriptBlockExecutionTimeout": "02:00:00"
