@@ -5,8 +5,6 @@
 			{
 				"name": "ingest",
 				"type": "ExecutePipeline",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "loggingpiplinestart",
@@ -41,6 +39,14 @@
 						"plp_tag": {
 							"value": "@pipeline().parameters.mplp_tag",
 							"type": "Expression"
+						},
+						"plp_fromdate": {
+							"value": "@variables('FromDate')",
+							"type": "Expression"
+						},
+						"plp_todate": {
+							"value": "@variables('Todate')",
+							"type": "Expression"
 						}
 					}
 				}
@@ -48,8 +54,6 @@
 			{
 				"name": "Transformation",
 				"type": "ExecutePipeline",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "ingest",
@@ -91,8 +95,6 @@
 			{
 				"name": "load",
 				"type": "ExecutePipeline",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Transformation",
@@ -142,8 +144,6 @@
 			{
 				"name": "loggingpiplinestart",
 				"type": "Script",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Lookup1",
@@ -180,8 +180,6 @@
 			{
 				"name": "loggingpiplineend",
 				"type": "Script",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "load",
