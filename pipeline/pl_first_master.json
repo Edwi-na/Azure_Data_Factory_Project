@@ -184,7 +184,7 @@
 					{
 						"activity": "load",
 						"dependencyConditions": [
-							"Succeeded"
+							"Completed"
 						]
 					}
 				],
