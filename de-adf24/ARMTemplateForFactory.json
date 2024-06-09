@@ -378,9 +378,23 @@
 					{
 						"name": "ingest",
 						"type": "ExecutePipeline",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
 						"dependsOn": [
 							{
 								"activity": "loggingpiplinestart",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Set datato unix",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Set datefrom unix",
 								"dependencyConditions": [
 									"Succeeded"
 								]
@@ -407,6 +421,8 @@
 					{
 						"name": "Transformation",
 						"type": "ExecutePipeline",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
 						"dependsOn": [
 							{
 								"activity": "ingest",
@@ -448,6 +464,8 @@
 					{
 						"name": "load",
 						"type": "ExecutePipeline",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
 						"dependsOn": [
 							{
 								"activity": "Transformation",
@@ -497,7 +515,16 @@
 					{
 						"name": "loggingpiplinestart",
 						"type": "Script",
-						"dependsOn": [],
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [
+							{
+								"activity": "Lookup1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
 						"policy": {
 							"timeout": "0.12:00:00",
 							"retry": 0,
@@ -514,7 +541,10 @@
 							"scripts": [
 								{
 									"type": "Query",
-									"text": "Insert into logging.Piplinerun (Piplinerun, PiplineName, PiplineStartTime, PiplineEndTime, PiplineStatus)\r\nValues(\r\n    '(@pipeline().RunId)'\r\n    '(@pipeline().Pipeline)'\r\n    GetUTCDATE(),\r\n    Null,\r\n    'Starting'\r\n\r\n)"
+									"text": {
+										"value": "Insert into logging.pipelinerun (PipelineRunID, PipelineName, PipelineStartTime, PipelineEndTime, PipelineStatus)\r\nValues(\r\n    '@{pipeline().RunId}',\r\n    '@{pipeline().Pipeline}',\r\n    GetUTCDATE(),\r\n    Null,\r\n    'Starting'\r\n\r\n)",
+										"type": "Expression"
+									}
 								}
 							],
 							"scriptBlockExecutionTimeout": "02:00:00"
@@ -523,6 +553,8 @@
 					{
 						"name": "loggingpiplineend",
 						"type": "Script",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
 						"dependsOn": [
 							{
 								"activity": "load",
@@ -547,10 +579,92 @@
 							"scripts": [
 								{
 									"type": "Query",
-									"text": "Update logging.piplinerun\r\nset\r\n    PiplineEndTime = GETUTCDATE(),\r\n    PiplineStatus = '@{activity('load').status}'\r\nwhere\r\n    PiplineID = '@{pipline().RunID}'\r\n    and PiplineStauts = 'Starting'"
+									"text": {
+										"value": "Update logging.pipelinerun\r\nset\r\n    PipelineEndTime = GETUTCDATE(),\r\n    PipelineStatus = '@{activity('load').status}'\r\nwhere\r\n    PipelineRunID = '@{pipeline().RunID}'\r\n    and PipelineStatus = 'Starting'",
+										"type": "Expression"
+									}
 								}
 							],
 							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					},
+					{
+						"name": "Lookup1",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "select PipelineStartTime\nfrom logging.piplinerun\nwhere PipelineName = '@{pipeline().Pipeline}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "ds_AzureSqlTable1",
+								"type": "DatasetReference",
+								"parameters": {
+									"sql_schema": {
+										"value": "@pipeline().parameters.mplp_sql_logging_schema",
+										"type": "Expression"
+									},
+									"sql_table": {
+										"value": "@pipeline().parameters.mplp_sql_logging_view",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					},
+					{
+						"name": "Set datefrom unix",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "Lookup1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "FromDate",
+							"value": {
+								"value": "@{div(sub(ticks(activity('Lookup1').output.firstRow.PipelineStartTime), ticks('1970-01-01')), 10000000)}",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Set datato unix",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "Todate",
+							"value": {
+								"value": "@{div(sub(ticks(utcNow()), ticks('1970-01-01')), 10000000)}",
+								"type": "Expression"
+							}
 						}
 					}
 				],
@@ -589,6 +703,22 @@
 					"mplp_sql_dim_table": {
 						"type": "string",
 						"defaultValue": "dimOwners"
+					},
+					"mplp_sql_logging_schema": {
+						"type": "string",
+						"defaultValue": "logging"
+					},
+					"mplp_sql_logging_view": {
+						"type": "string",
+						"defaultValue": "piplinerun"
+					}
+				},
+				"variables": {
+					"Todate": {
+						"type": "String"
+					},
+					"FromDate": {
+						"type": "String"
 					}
 				},
 				"annotations": [],
@@ -598,7 +728,8 @@
 				"[concat(variables('factoryId'), '/pipelines/pl_first_ingest')]",
 				"[concat(variables('factoryId'), '/pipelines/pl_first_transaformation')]",
 				"[concat(variables('factoryId'), '/pipelines/pl_first_load')]",
-				"[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabase1')]"
+				"[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabase1')]",
+				"[concat(variables('factoryId'), '/datasets/ds_AzureSqlTable1')]"
 			]
 		},
 		{
